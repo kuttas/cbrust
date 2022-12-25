@@ -1,0 +1,14 @@
+syntax = "proto3";
+package cbservice;
+
+service ComputeBroker {
+    rpc GetHostInfo (GetHostInfoRequest) returns (GetHostInfoResponse);
+}
+
+message GetHostInfoRequest {
+    string hostname = 1;
+}
+
+message GetHostInfoResponse {
+    string info = 1;
+}
