@@ -15,6 +15,7 @@ pub struct ComputeBrokerService {}
 impl ComputeBroker for ComputeBrokerService {
   async fn get_host_info(&self, request: Request<GetHostInfoRequest>) -> Result<Response<GetHostInfoResponse>, Status> {
     let r = request.into_inner();
+    println!("CB cli wants info for hostname '{}'", r.hostname);
     Ok(Response::new(GetHostInfoResponse{ info: format!("Here's the info for host '{}'", r.hostname)}))
   }
 }
