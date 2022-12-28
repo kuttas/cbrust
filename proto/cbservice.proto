@@ -2,7 +2,16 @@ syntax = "proto3";
 package cbservice;
 
 service ComputeBroker {
+    rpc AddHost (AddHostRequest) returns (AddHostResponse);
     rpc GetHostInfo (GetHostInfoRequest) returns (GetHostInfoResponse);
+}
+
+message AddHostRequest {
+    string hostname = 1;
+    string info = 2;
+}
+
+message AddHostResponse {
 }
 
 message GetHostInfoRequest {

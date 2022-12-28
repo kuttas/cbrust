@@ -1,4 +1,4 @@
-use cbservice::{compute_broker_client::ComputeBrokerClient, GetHostInfoRequest};
+use cbservice::{compute_broker_client::ComputeBrokerClient, AddHostRequest};
 use std::io::stdin;
 
 pub mod cbservice {
@@ -14,10 +14,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         stdin().read_line(&mut hostname).unwrap();
         let hostname = hostname.trim();
 
-        let request = tonic::Request::new(GetHostInfoRequest {
+        // TODO: fix the CLI to use actual flags/options so we can do CRUD operations.
+        // let request = tonic::Request::new(GetHostInfoRequest {
+        //     hostname: String::from(hostname),
+        // });
+        // let response = client.get_host_info(request).await?;
+        // println!("CB service says: '{}'", response.into_inner().info);
+
+        // Add host to DB with bogus info string
+        let request = tonic::Request::new(AddHostRequest {
             hostname: String::from(hostname),
+            info: String::from("todo useful info"),
         });
-        let response = client.get_host_info(request).await?;
-        println!("CB service says: '{}'", response.into_inner().info);
+        let response = client.add_host(request).await?;
+        println!("CB service success: {:?}", response);
     }
 }
