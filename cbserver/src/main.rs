@@ -1,21 +1,36 @@
-use mysql::{params, prelude::Queryable, Pool, PooledConn};
+use mysql::{params, prelude::Queryable};
 use std::sync::Mutex;
 
+// Import proto generated Rust code into cbservice module
+pub mod cbservice {
+    tonic::include_proto!("cbservice");
+}
 use cbservice::{
     compute_broker_server::{ComputeBroker, ComputeBrokerServer},
     AddHostRequest, AddHostResponse, GetHostInfoRequest, GetHostInfoResponse,
 };
+
 use tonic::{transport::Server, Request, Response, Status};
 
-pub mod cbservice {
-    tonic::include_proto!("cbservice");
+// Convert mysql `Error` (common in our gRPC handlers) to gRPC `Status`.
+fn status_from_mysql_error(err: mysql::Error) -> tonic::Status {
+    Status::from_error(Box::new(err))
 }
 
-#[derive(Debug)]
+// Compute Broker Service handler
 pub struct ComputeBrokerService {
-    conn: Mutex<Box<PooledConn>>,
+    connection_pool: Mutex<Box<mysql::Pool>>,
 }
 
+// ComputeBrokerService helper methods
+impl ComputeBrokerService {
+    fn get_conn(&self) -> mysql::Result<mysql::PooledConn> {
+        let pool = self.connection_pool.lock().unwrap();
+        pool.get_conn()
+    }
+}
+
+// ComputeBrokerService gRPC handlers
 #[tonic::async_trait]
 impl ComputeBroker for ComputeBrokerService {
     async fn add_host(
@@ -23,12 +38,13 @@ impl ComputeBroker for ComputeBrokerService {
         request: Request<AddHostRequest>,
     ) -> Result<Response<AddHostResponse>, Status> {
         let r = request.into_inner();
-        let mut conn = self.conn.lock().unwrap();
+        let mut conn = self.get_conn().map_err(status_from_mysql_error)?;
+
         conn.exec_drop(
             "INSERT INTO hosts (id, hostname, info) VALUES (UUID_TO_BIN(UUID()), :hostname, :info)",
             params! { "hostname" => r.hostname, "info" => r.info },
         )
-        .expect("insert failed");
+        .map_err(status_from_mysql_error)?;
         Ok(Response::new(AddHostResponse {}))
     }
 
@@ -44,24 +60,14 @@ impl ComputeBroker for ComputeBrokerService {
     }
 }
 
-#[derive(Debug, PartialEq)]
-struct Database {
-    name: String,
-}
-
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let url = "mysql://root@localhost:3306/compute_broker";
-    let pool = Pool::new(url)?;
-    let mut conn = Box::new(pool.get_conn()?);
-
-    let dbs = conn.query_map("SHOW DATABASES;", |name| Database { name })?;
-
-    println!("SHOW DATABASES result:\n{:?}", dbs);
+    let connection_pool = mysql::Pool::new(url)?;
 
     let address = "[::1]:8080".parse().unwrap();
     let cbservice = ComputeBrokerService {
-        conn: Mutex::new(conn),
+        connection_pool: Mutex::new(Box::new(connection_pool)),
     };
 
     Server::builder()
