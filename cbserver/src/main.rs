@@ -1,11 +1,7 @@
 use mysql::{params, prelude::Queryable};
 use std::sync::Mutex;
 
-// Import proto generated Rust code into cbservice module
-pub mod cbservice {
-    tonic::include_proto!("cbservice");
-}
-use cbservice::{
+use cbprotolib::{
     compute_broker_server::{ComputeBroker, ComputeBrokerServer},
     AddHostRequest, AddHostResponse, GetHostInfoRequest, GetHostInfoResponse,
 };
