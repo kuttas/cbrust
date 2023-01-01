@@ -1,9 +1,5 @@
-use cbservice::{compute_broker_client::ComputeBrokerClient, AddHostRequest};
+use cbprotolib::{compute_broker_client::ComputeBrokerClient, AddHostRequest};
 use std::io::stdin;
-
-pub mod cbservice {
-    tonic::include_proto!("cbservice");
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

@@ -2,5 +2,6 @@
 
 members = [
     "cbcli",
+    "cbprotolib",
     "cbserver",
 ]
