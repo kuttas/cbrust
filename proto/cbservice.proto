@@ -4,6 +4,7 @@ package cbservice;
 service ComputeBroker {
     rpc AddHost (AddHostRequest) returns (AddHostResponse);
     rpc GetHostInfo (GetHostInfoRequest) returns (GetHostInfoResponse);
+    rpc ListHosts (ListHostsRequest) returns (ListHostsResponse);
 }
 
 message AddHostRequest {
@@ -18,8 +19,19 @@ message GetHostInfoRequest {
     string hostname = 1;
 }
 
-message GetHostInfoResponse {
+message HostInfo {
     string id = 1;
     string hostname = 2;
     string info = 3;
+}
+
+message GetHostInfoResponse {
+    HostInfo host_info = 1;
+}
+
+message ListHostsRequest {
+}
+
+message ListHostsResponse {
+    repeated HostInfo host_infos = 1;
 }
