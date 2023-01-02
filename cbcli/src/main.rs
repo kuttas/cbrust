@@ -34,6 +34,9 @@ struct GetHostInfo {
 struct AddHost {
     /// Fully qualified domain name of host, e.g. `foobar.example.com`
     hostname: String,
+    /// A string of useful info about the host
+    #[arg(default_value_t = String::from("<no info provided>"))]
+    info: String,
 }
 
 async fn list_hosts() {
@@ -57,9 +60,10 @@ async fn get_host_info(args: GetHostInfo) -> Result<(), Box<dyn std::error::Erro
 async fn add_host(args: AddHost) -> Result<(), Box<dyn std::error::Error>> {
     let mut client = ComputeBrokerClient::connect("http://[::1]:8080").await?;
     let hostname = args.hostname.trim();
+    let info = args.info.trim();
     let request = tonic::Request::new(cbprotolib::AddHostRequest {
         hostname: String::from(hostname),
-        info: String::from("todo useful info"),
+        info: String::from(info),
     });
     let _ = client.add_host(request).await?;
     println!("added host '{}'", hostname);
