@@ -63,9 +63,11 @@ impl cbprotolib::compute_broker_server::ComputeBroker for ComputeBrokerService {
                 let uid = uuid::Uuid::from_slice(id.as_slice()).map_err(status_from_error)?;
 
                 Ok(tonic::Response::new(cbprotolib::GetHostInfoResponse {
-                    id: uid.to_string(),
-                    hostname: hostname,
-                    info: info,
+                    host_info: std::option::Option::Some(cbprotolib::HostInfo {
+                        id: uid.to_string(),
+                        hostname: hostname,
+                        info: info,
+                    }),
                 }))
             }
             None => Err(tonic::Status::not_found(format!(
@@ -73,5 +75,35 @@ impl cbprotolib::compute_broker_server::ComputeBroker for ComputeBrokerService {
                 r.hostname
             ))),
         }
+    }
+
+    async fn list_hosts(
+        &self,
+        _: tonic::Request<cbprotolib::ListHostsRequest>,
+    ) -> Result<tonic::Response<cbprotolib::ListHostsResponse>, tonic::Status> {
+        let mut conn = self.get_conn().map_err(status_from_error)?;
+
+        let host_infos = conn
+            .exec_map(
+                "SELECT id, hostname, info FROM hosts",
+                (),
+                |(id, hostname, info): (Vec<u8>, String, String)| {
+                    // This is a bit sketchy, we return a nil (all 0) uuid if the parse fails.
+                    // In production code we should detect this case and raise an alert/error.
+                    let uid_str = uuid::Uuid::from_slice(id.as_slice())
+                        .unwrap_or(uuid::Uuid::nil())
+                        .to_string();
+                    cbprotolib::HostInfo {
+                        id: uid_str,
+                        hostname: hostname,
+                        info: info,
+                    }
+                },
+            )
+            .map_err(status_from_error)?;
+
+        Ok(tonic::Response::new(cbprotolib::ListHostsResponse {
+            host_infos: host_infos,
+        }))
     }
 }

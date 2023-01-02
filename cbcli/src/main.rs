@@ -39,8 +39,18 @@ struct AddHost {
     info: String,
 }
 
-async fn list_hosts() {
-    // TODO: implement
+async fn list_hosts() -> Result<(), Box<dyn std::error::Error>> {
+    let mut client = ComputeBrokerClient::connect("http://[::1]:8080").await?;
+    let request = tonic::Request::new(cbprotolib::ListHostsRequest {});
+    let response = client.list_hosts(request).await?.into_inner();
+    for host_info in response.host_infos.iter() {
+        println!(
+            "Host: {}\nID: {}\nInfo: {}\n",
+            host_info.hostname, host_info.id, host_info.info
+        );
+    }
+
+    Ok(())
 }
 
 async fn get_host_info(args: GetHostInfo) -> Result<(), Box<dyn std::error::Error>> {
@@ -50,6 +60,10 @@ async fn get_host_info(args: GetHostInfo) -> Result<(), Box<dyn std::error::Erro
         hostname: String::from(hostname),
     });
     let response = client.get_host_info(request).await?.into_inner();
+    let response = match response.host_info {
+        Some(host_info) => host_info,
+        None => return Err("no nested host_info".into()),
+    };
     println!(
         "Host: {}\nID: {}\nInfo: {}",
         response.hostname, response.id, response.info
@@ -75,7 +89,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = CliArgs::parse();
 
     match args.command {
-        Commands::ListHosts(_) => list_hosts().await,
+        Commands::ListHosts(_) => list_hosts().await?,
         Commands::GetHostInfo(args) => get_host_info(args).await?,
         Commands::AddHost(args) => add_host(args).await?,
     }
