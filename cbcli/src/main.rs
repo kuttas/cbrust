@@ -46,8 +46,11 @@ async fn get_host_info(args: GetHostInfo) -> Result<(), Box<dyn std::error::Erro
     let request = tonic::Request::new(cbprotolib::GetHostInfoRequest {
         hostname: String::from(hostname),
     });
-    let response = client.get_host_info(request).await?;
-    println!("host info:\n{}", response.into_inner().info);
+    let response = client.get_host_info(request).await?.into_inner();
+    println!(
+        "Host: {}\nID: {}\nInfo: {}",
+        response.hostname, response.id, response.info
+    );
     Ok(())
 }
 

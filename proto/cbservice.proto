@@ -19,5 +19,7 @@ message GetHostInfoRequest {
 }
 
 message GetHostInfoResponse {
-    string info = 1;
+    string id = 1;
+    string hostname = 2;
+    string info = 3;
 }
