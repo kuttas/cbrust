@@ -33,11 +33,20 @@ impl cbprotolib::compute_broker_server::ComputeBroker for ComputeBrokerService {
         request: tonic::Request<cbprotolib::AddHostRequest>,
     ) -> Result<tonic::Response<cbprotolib::AddHostResponse>, tonic::Status> {
         let r = request.into_inner();
+        let r = match r.host_info {
+            Some(host_info) => host_info,
+            None => {
+                return Err(tonic::Status::new(
+                    tonic::Code::InvalidArgument,
+                    String::from("no nested host_info"),
+                ))
+            }
+        };
         let mut conn = self.get_conn().map_err(status_from_error)?;
 
         conn.exec_drop(
-            "INSERT INTO hosts (id, hostname, info) VALUES (UUID_TO_BIN(UUID()), :hostname, :info)",
-            params! { "hostname" => r.hostname, "info" => r.info },
+            "INSERT INTO hosts (id, hostname, info, alloc_state, health_state) VALUES (UUID_TO_BIN(UUID()), :hostname, :info, :alloc_state, :health_state)",
+            params! { "hostname" => r.hostname, "info" => r.info, "alloc_state" => r.alloc_state, "health_state" => r.health_state },
         )
         .map_err(status_from_error)?;
 
@@ -52,14 +61,15 @@ impl cbprotolib::compute_broker_server::ComputeBroker for ComputeBrokerService {
         let mut conn = self.get_conn().map_err(status_from_error)?;
         let row = conn
             .exec_first(
-                "SELECT id, hostname, info FROM hosts WHERE hostname = :hostname",
+                "SELECT id, hostname, info, alloc_state, health_state FROM hosts WHERE hostname = :hostname",
                 params! { "hostname" => r.hostname.as_str() },
             )
             .map_err(status_from_error)?;
 
         match row {
             Some(row) => {
-                let (id, hostname, info) = mysql::from_row::<(Vec<u8>, String, String)>(row);
+                let (id, hostname, info, alloc_state, health_state) =
+                    mysql::from_row::<(Vec<u8>, String, String, u8, u8)>(row);
                 let uid = uuid::Uuid::from_slice(id.as_slice()).map_err(status_from_error)?;
 
                 Ok(tonic::Response::new(cbprotolib::GetHostInfoResponse {
@@ -67,6 +77,8 @@ impl cbprotolib::compute_broker_server::ComputeBroker for ComputeBrokerService {
                         id: uid.to_string(),
                         hostname: hostname,
                         info: info,
+                        alloc_state: alloc_state as i32,
+                        health_state: health_state as i32,
                     }),
                 }))
             }
@@ -85,9 +97,15 @@ impl cbprotolib::compute_broker_server::ComputeBroker for ComputeBrokerService {
 
         let host_infos = conn
             .exec_map(
-                "SELECT id, hostname, info FROM hosts",
-                (),
-                |(id, hostname, info): (Vec<u8>, String, String)| {
+                "SELECT id, hostname, info, alloc_state, health_state FROM hosts",
+                (), // no query params
+                |(id, hostname, info, alloc_state, health_state): (
+                    Vec<u8>,
+                    String,
+                    String,
+                    u8,
+                    u8,
+                )| {
                     // This is a bit sketchy, we return a nil (all 0) uuid if the parse fails.
                     // In production code we should detect this case and raise an alert/error.
                     let uid_str = uuid::Uuid::from_slice(id.as_slice())
@@ -97,6 +115,8 @@ impl cbprotolib::compute_broker_server::ComputeBroker for ComputeBrokerService {
                         id: uid_str,
                         hostname: hostname,
                         info: info,
+                        alloc_state: alloc_state as i32,
+                        health_state: health_state as i32,
                     }
                 },
             )
