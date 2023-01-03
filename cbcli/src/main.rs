@@ -19,6 +19,9 @@ enum Commands {
 
     /// Adds hosts to Compute Broker's database
     AddHost(AddHost),
+
+    /// Flags a healthy host for maintenance
+    MaintainHost(MaintainHost),
 }
 
 #[derive(Args)]
@@ -37,6 +40,12 @@ struct AddHost {
     /// A string of useful info about the host
     #[arg(default_value_t = String::from("<no info provided>"))]
     info: String,
+}
+
+#[derive(Args)]
+struct MaintainHost {
+    /// Fully qualified domain name of host, e.g. `foobar.example.com`
+    hostname: String,
 }
 
 fn print_host_info(host_info: &cbprotolib::HostInfo) {
@@ -98,6 +107,17 @@ async fn add_host(args: AddHost) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+async fn maintain_host(args: MaintainHost) -> Result<(), Box<dyn std::error::Error>> {
+    let mut client = ComputeBrokerClient::connect("http://[::1]:8080").await?;
+    let hostname = args.hostname.trim();
+    let request = tonic::Request::new(cbprotolib::MaintainHostRequest {
+        hostname: String::from(hostname),
+    });
+    let _ = client.maintain_host(request).await?.into_inner();
+    println!("flagged host '{}' for maintenance", hostname);
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = CliArgs::parse();
@@ -106,6 +126,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::ListHosts(_) => list_hosts().await?,
         Commands::GetHostInfo(args) => get_host_info(args).await?,
         Commands::AddHost(args) => add_host(args).await?,
+        Commands::MaintainHost(args) => maintain_host(args).await?,
     }
     Ok(())
 }

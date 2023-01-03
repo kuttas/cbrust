@@ -5,6 +5,9 @@ service ComputeBroker {
     rpc AddHost (AddHostRequest) returns (AddHostResponse);
     rpc GetHostInfo (GetHostInfoRequest) returns (GetHostInfoResponse);
     rpc ListHosts (ListHostsRequest) returns (ListHostsResponse);
+
+    // Flag a healthy host for maintenance.
+    rpc MaintainHost (MaintainHostRequest) returns (MaintainHostResponse);
 }
 
 enum HostAllocationState {
@@ -58,4 +61,11 @@ message ListHostsRequest {
 
 message ListHostsResponse {
     repeated HostInfo host_infos = 1;
+}
+
+message MaintainHostRequest {
+    string hostname = 1; // TODO: should probably take UUID if this was production code.
+}
+
+message MaintainHostResponse {
 }
