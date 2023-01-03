@@ -126,4 +126,31 @@ impl cbprotolib::compute_broker_server::ComputeBroker for ComputeBrokerService {
             host_infos: host_infos,
         }))
     }
+
+    async fn maintain_host(
+        &self,
+        request: tonic::Request<cbprotolib::MaintainHostRequest>,
+    ) -> Result<tonic::Response<cbprotolib::MaintainHostResponse>, tonic::Status> {
+        let r = request.into_inner();
+        let mut conn = self.get_conn().map_err(status_from_error)?;
+
+        let result = conn.exec_iter(
+            "UPDATE hosts SET health_state=:target_state WHERE hostname=:hostname AND health_state=:source_state;",
+            params! { "hostname" => r.hostname.as_str(), "target_state" => cbprotolib::HostHealthState::InMaintenance as i32, "source_state" => cbprotolib::HostHealthState::Good as i32},
+        ).map_err(status_from_error)?;
+        if result.affected_rows() == 0 {
+            // TODO: Could probably make a fancier SQL query to tell us which condition was not met,
+            // or do a SELECT query to see if that host exists in the wrong state (it wouldn't be transactional,
+            // but maybe fine for error reporting purposes).
+            return Err(tonic::Status::new(
+                tonic::Code::NotFound,
+                format!(
+                    "host with matching hostname '{}' not found OR host not in healthy state",
+                    r.hostname
+                ),
+            ));
+        } else {
+            Ok(tonic::Response::new(cbprotolib::MaintainHostResponse {}))
+        }
+    }
 }
