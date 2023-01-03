@@ -39,15 +39,27 @@ struct AddHost {
     info: String,
 }
 
+fn print_host_info(host_info: &cbprotolib::HostInfo) {
+    println!(
+        "Host: {}\nID: {}\nInfo: {}\nAllocation State: {}\nHealth State: {}\n",
+        host_info.hostname,
+        host_info.id,
+        host_info.info,
+        cbprotolib::HostAllocationState::from_i32(host_info.alloc_state)
+            .unwrap_or(cbprotolib::HostAllocationState::Invalid)
+            .as_str_name(),
+        cbprotolib::HostHealthState::from_i32(host_info.health_state)
+            .unwrap_or(cbprotolib::HostHealthState::Invalid)
+            .as_str_name(),
+    );
+}
+
 async fn list_hosts() -> Result<(), Box<dyn std::error::Error>> {
     let mut client = ComputeBrokerClient::connect("http://[::1]:8080").await?;
     let request = tonic::Request::new(cbprotolib::ListHostsRequest {});
     let response = client.list_hosts(request).await?.into_inner();
     for host_info in response.host_infos.iter() {
-        println!(
-            "Host: {}\nID: {}\nInfo: {}\n",
-            host_info.hostname, host_info.id, host_info.info
-        );
+        print_host_info(host_info);
     }
 
     Ok(())
@@ -60,14 +72,11 @@ async fn get_host_info(args: GetHostInfo) -> Result<(), Box<dyn std::error::Erro
         hostname: String::from(hostname),
     });
     let response = client.get_host_info(request).await?.into_inner();
-    let response = match response.host_info {
+    let host_info = match response.host_info {
         Some(host_info) => host_info,
         None => return Err("no nested host_info".into()),
     };
-    println!(
-        "Host: {}\nID: {}\nInfo: {}",
-        response.hostname, response.id, response.info
-    );
+    print_host_info(&host_info);
     Ok(())
 }
 
@@ -76,8 +85,13 @@ async fn add_host(args: AddHost) -> Result<(), Box<dyn std::error::Error>> {
     let hostname = args.hostname.trim();
     let info = args.info.trim();
     let request = tonic::Request::new(cbprotolib::AddHostRequest {
-        hostname: String::from(hostname),
-        info: String::from(info),
+        host_info: std::option::Option::Some(cbprotolib::HostInfo {
+            id: String::from(""), // TODO: this is janky, but making it optional also adds annoying complexity
+            hostname: String::from(hostname),
+            info: String::from(info),
+            alloc_state: cbprotolib::HostAllocationState::Unallocated as i32,
+            health_state: cbprotolib::HostHealthState::Good as i32,
+        }),
     });
     let _ = client.add_host(request).await?;
     println!("added host '{}'", hostname);

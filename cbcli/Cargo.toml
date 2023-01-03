@@ -10,3 +10,4 @@ cbprotolib = { path = "../cbprotolib" }
 clap = { version = "4.0.32", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
 tonic = "*"
+uuid = "*"

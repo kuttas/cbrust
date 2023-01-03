@@ -7,9 +7,30 @@ service ComputeBroker {
     rpc ListHosts (ListHostsRequest) returns (ListHostsResponse);
 }
 
+enum HostAllocationState {
+    // Reserve 0 (uninitialized) for invalid; no host can ever be in this state.
+    HOST_ALLOCATION_STATE_INVALID = 0;
+    // Host is likely new and has not yet been initially provisioned.
+    // Hosts in this state can not be allocated.
+    // TODO: can a host re-enter this state?
+    HOST_ALLOCATION_STATE_UNPROVISIONED = 1;
+    // Host is provisioned and usable, but not allocated to any pool.
+    HOST_ALLOCATION_STATE_UNALLOCATED = 2;
+    // Host is allocated to a pool and (likely) in use.
+    HOST_ALLOCATION_STATE_ALLOCATED = 3;
+}
+
+enum HostHealthState {
+    // Reserve 0 (uninitialized) for invalid; no host can ever be in this state.
+    HOST_HEALTH_STATE_INVALID = 0;
+    // Host is healthy and can be used (independent of whether it's actually allocated)
+    HOST_HEALTH_STATE_GOOD = 1;
+    // Host is currently in maintenance (but may still be allocated to a pool)
+    HOST_HEALTH_STATE_IN_MAINTENANCE = 2;
+}
+
 message AddHostRequest {
-    string hostname = 1;
-    string info = 2;
+    HostInfo host_info = 1;
 }
 
 message AddHostResponse {
@@ -23,6 +44,9 @@ message HostInfo {
     string id = 1;
     string hostname = 2;
     string info = 3;
+
+    HostAllocationState alloc_state = 4;
+    HostHealthState health_state = 5;
 }
 
 message GetHostInfoResponse {
