@@ -1,5 +1,5 @@
 use mysql::{params, prelude::Queryable};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 // Convert `Error` (common in our gRPC handlers) to `tonic::Status` (expected gRPC handler return).
 // TODO: Should fill in useful status codes, which is probably why this conversion is not implicit!
@@ -9,12 +9,12 @@ fn status_from_error<T: std::error::Error + Send + Sync + 'static>(err: T) -> to
 
 // Compute Broker Service handler
 pub struct ComputeBrokerService {
-    connection_pool: Mutex<Box<mysql::Pool>>,
+    connection_pool: Arc<Mutex<Box<mysql::Pool>>>,
 }
 
 // ComputeBrokerService helper methods
 impl ComputeBrokerService {
-    pub fn new(pool: Mutex<Box<mysql::Pool>>) -> Self {
+    pub fn new(pool: Arc<Mutex<Box<mysql::Pool>>>) -> Self {
         return ComputeBrokerService {
             connection_pool: pool,
         };
