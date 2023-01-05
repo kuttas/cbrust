@@ -136,7 +136,7 @@ impl cbprotolib::compute_broker_server::ComputeBroker for ComputeBrokerService {
 
         let result = conn.exec_iter(
             "UPDATE hosts SET health_state=:target_state WHERE hostname=:hostname AND health_state=:source_state;",
-            params! { "hostname" => r.hostname.as_str(), "target_state" => cbprotolib::HostHealthState::InMaintenance as i32, "source_state" => cbprotolib::HostHealthState::Good as i32},
+            params! { "hostname" => r.hostname.as_str(), "target_state" => cbprotolib::HostHealthState::NeedsMaintenance as i32, "source_state" => cbprotolib::HostHealthState::Good as i32},
         ).map_err(status_from_error)?;
         if result.affected_rows() == 0 {
             // TODO: Could probably make a fancier SQL query to tell us which condition was not met,
