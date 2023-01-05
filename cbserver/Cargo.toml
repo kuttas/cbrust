@@ -10,5 +10,6 @@ cbprotolib = { path = "../cbprotolib" }
 futures = "*"
 mysql = "*"
 tokio = { version = "1", features = ["full"] }
+tokio-util = "*"
 tonic = "*"
 uuid = "*"
