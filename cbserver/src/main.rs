@@ -1,27 +1,59 @@
 use mysql::{params, prelude::Queryable};
 use std::sync::{Arc, Mutex};
 mod service;
+use futures::StreamExt;
 use tokio_util::sync::CancellationToken;
+
+async fn maintain_host(pool: Arc<Mutex<Box<mysql::Pool>>>, hostname: &String) -> String {
+    println!("maintaining host {}...", hostname);
+    tokio::time::sleep(std::time::Duration::from_millis(5000)).await;
+    let mut conn = pool
+        .lock()
+        .unwrap()
+        .get_conn()
+        .expect("expected connection"); // TODO: easiest to crash & restart on db connection fail?
+    let _ = conn.exec_iter(
+        "UPDATE hosts SET health_state=:target_state WHERE hostname=:hostname AND health_state=:source_state;",
+        params! { "hostname" => hostname, "target_state" => cbprotolib::HostHealthState::Good as i32, "source_state" => cbprotolib::HostHealthState::InMaintenance as i32},
+    ).expect("TODO error handling");
+    return hostname.clone();
+}
 
 // This "maintainer" reconciliation loop could be split to another process/service or sharded.
 // If sharded, then it needs to 'lease' the hosts to prevent multiple services from maintaining the same host.
 async fn maintainer(pool: Arc<Mutex<Box<mysql::Pool>>>, cancel_token: CancellationToken) {
+    let mut fu = futures::stream::FuturesUnordered::new();
     loop {
         tokio::select! {
             _ = tokio::time::sleep(std::time::Duration::from_millis(1000)) => {
                 let mut conn = pool.lock().unwrap().get_conn().expect("expected connection"); // TODO: easiest to crash & restart on db connection fail?
-                conn.exec_map(
+                let hostnames: std::vec::Vec<std::string::String> = conn.exec_map(
                     "SELECT hostname FROM hosts WHERE health_state=:state",
                     params! { "state" => cbprotolib::HostHealthState::InMaintenance as i32 },
                     |hostname: String| {
-                        println!("host {} is in maintenance", hostname);
+                        hostname
                     },
                 )
                 .expect("expected sql success"); // TODO: probably shouldn't panic here, though it may be better to crash & restart?
+
+                for hostname in hostnames.into_iter() {
+                    println!("performing maintenance on host {}", hostname);
+                    // TODO: transition host from "NEEDS MAINTENANCE" to "IN MAINTENANCE" before kicking off async task,
+                    // also poll all hosts in maintenance once on startup to restart state machines where we left off.
+                    let cloned_pool = pool.clone();
+                    fu.push(async move {
+                        return maintain_host(cloned_pool, &hostname).await;
+                    });
+                }
             }
             _ = cancel_token.cancelled() => {
                 println!("terminating maintainer");
                 return;
+            }
+            // NOTE: we must match Some explicitly, because an empty FuturesUnordered will
+            // immediately yield the None value.
+            Some(v) = fu.next() => {
+                println!("completed maintenance on host {:?}", v);
             }
         }
     }
