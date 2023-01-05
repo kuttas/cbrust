@@ -28,8 +28,10 @@ enum HostHealthState {
     HOST_HEALTH_STATE_INVALID = 0;
     // Host is healthy and can be used (independent of whether it's actually allocated)
     HOST_HEALTH_STATE_GOOD = 1;
-    // Host is currently in maintenance (but may still be allocated to a pool)
-    HOST_HEALTH_STATE_IN_MAINTENANCE = 2;
+    // Host currently needs maintenance (but may still be allocated to a pool)
+    HOST_HEALTH_STATE_NEEDS_MAINTENANCE = 2;
+    // Host is currently undergoing maintenance (but may still be allocated to a pool)
+    HOST_HEALTH_STATE_IN_MAINTENANCE = 3;
 }
 
 message AddHostRequest {
